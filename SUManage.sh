@@ -9,7 +9,10 @@
 #                                             /____/        #  
 #############################################################
 
-updateLabel="$4"
+## Lable without build
+updateLabelSearch="$4"
+## Obtain actual label
+updateLabel=$(/usr/sbin/softwareupdate --list | /usr/bin/grep -m 1 "$updateLabelSearch" | /usr/bin/awk -F 'Label: ' '{print $2}' | /usr/bin/xargs)
 updateLabelNoBuild=$(echo -n "$updateLabel" | /usr/bin/cut -d '-' -f1 | /usr/bin/xargs)
 buildNumber=$(echo -n "$updateLabel" | /usr/bin/cut -d '-' -f2 | /usr/bin/xargs)
 versionNumber="$5"
@@ -57,7 +60,7 @@ fi
 if [[ "$followUpVisit" == "NO" ]]
 then
 	echo "Beginning the update download for ${updateLabel}"
-	nowTime=$(date '+%Y-%m-%d %H:%M:%S')
+	#nowTime=$(date '+%Y-%m-%d %H:%M:%S')
 	/usr/sbin/softwareupdate --download "$updateLabel" &
 	echo "Download has started for ${updateLabel} in the background"
 	/usr/bin/defaults write "/usr/local/SUManage.plist" UpdateDownloadStart -string "$(date '+%Y-%m-%d %H:%M:%S')"
