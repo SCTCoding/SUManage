@@ -17,6 +17,14 @@ versionNumber="$5"
 msuSearchTerm=$(echo -n "MSU_UPDATE_${buildNumber}_patch_${versionNumber}")
 followUpVisit="NO"
 
+if [[ $(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F '.' '{print $1}' | /usr/bin/xargs) -eq 12 ]]
+then
+	downloadCompleteSearch="Download is complete"
+elif [[ $(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F '.' '{print $1}' | /usr/bin/xargs) -eq 11 ]]
+then
+	downloadCompleteSearch="${msuSearchTerm} (no, not downloaded)"
+fi
+
 ## Make sure the plist exists
 if [[ ! -e "/usr/local/SUManage.plist" ]]
 then
@@ -69,8 +77,7 @@ else
 fi
 
 ## See if we are finished
-if [[ "$followUpVisit" == "YES" ]] && [[ ! -z $(log show --process "SoftwareUpdateNotificationManager" --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "Download is complete") ]] && [[ "$(/usr/bin/grep -A 1 ">Build<" "/System/Library/AssetsV2/com_apple_MobileAsset_MacSoftwareUpdate/com_apple_MobileAsset_MacSoftwareUpdate.xml" | /usr/bin/head -n 1 | /usr/bin/xargs)" == "$buildNumber" ]]
-if [[  ]] ]]
+if [[ "$followUpVisit" == "YES" ]] && [[ ! -z $(log show --process "SoftwareUpdateNotificationManager" --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "$downloadCompleteSearch") ]] && [[ "$(/usr/bin/grep -A 1 ">Build<" "/System/Library/AssetsV2/com_apple_MobileAsset_MacSoftwareUpdate/com_apple_MobileAsset_MacSoftwareUpdate.xml" | /usr/bin/head -n 1 | /usr/bin/xargs)" == "$buildNumber" ]]
 then
 	if [[ -z $(/usr/sbin/softwareupdate --download "$updateLabel" | /usr/bin/grep "Downloaded: $updateLabelNoBuild") ]]
 	then
