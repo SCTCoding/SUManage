@@ -24,6 +24,7 @@ In theory this could be run with something like Jamf. For the Jamf case (this ju
 - Have an extension attribute that looks for the label and "COMPLETE" and marks ready for update
 - Trigger your notification/deferral or other actions based on the EA
 - Update is installed now that it's ready
+
 *For other updates you can just trigger those by product type. For example Xprotect etc. The primary goal here is to not replace your update system, but to give you the tools to download specific updates and manage when they are installed.*
 
 ## Further Improvements
