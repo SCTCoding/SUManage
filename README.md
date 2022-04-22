@@ -16,5 +16,15 @@ This should work on any version of MacOS Monterey, but it will have issues with 
 6. Verify with another attempt to download the update
 7. Mark complete, or retry depending on the results
 
+## Envision Use Case
+In theory this could be run with something like Jamf. For the Jamf case (this just happens to be what I have to deal with):
+- Turn off auto updates
+- Run a job to manually check for updates to make sure the machine knows about your desired label
+- Run the policy on a recurring check-in to obtain the package
+- Have an extension attribute that looks for the label and "COMPLETE" and marks ready for update
+- Trigger your notification/deferral or other actions based on the EA
+- Update is installed now that it's ready
+*For other updates you can just trigger those by product type. For example Xprotect etc. The primary goal here is to not replace your update system, but to give you the tools to download specific updates and manage when they are installed.*
+
 ## Further Improvements
 This is a very first attempt and needs much work and help.
