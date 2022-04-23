@@ -25,6 +25,12 @@ msuSearchTerm=$(echo -n "MSU_UPDATE_${buildNumber}_patch_${versionNumber}")
 followUpVisit="NO"
 needsPassowrd="False"
 
+if [[ "$(/usr/bin/sw_vers -productVersion | /usr/bin/xargs)" == "$versionNumber" ]]
+then
+	echo "No need to update."
+	exit 0
+fi
+
 function obtainPasswordFromUser {
 	counter=0
 	passwordCheck=1
