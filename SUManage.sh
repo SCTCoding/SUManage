@@ -10,9 +10,6 @@
 #############################################################
 
 
-## Copyright Simon April 23, 2022
-## All rights reserved.
-
 loggedInUser=$(/usr/bin/stat -f%Su /dev/console)
 loggedInUID=$(/usr/bin/id -u "$loggedInUser")
 
@@ -129,7 +126,7 @@ then
 	## Grab the log
 	if [[ -z $(/usr/bin/defaults read "/usr/local/SUManage.plist" StartingLogLine | /usr/bin/base64 -D | /usr/bin/grep "$msuSearchTerm") ]]
 	then
-		initialObtainedLog=$(log show --process "SoftwareUpdateNotificationManager") 
+		initialObtainedLog=$(/usr/bin/log show --process "SoftwareUpdateNotificationManager") 
 		encodeForPlistLogLine=$(echo "$initialObtainedLog" | /usr/bin/grep "$msuSearchTerm" | /usr/bin/head -n 1 | /usr/bin/base64)
 
 		/usr/bin/defaults write "/usr/local/SUManage.plist" StartingLogLine -string "$encodeForPlistLogLine"	
@@ -141,7 +138,7 @@ fi
 
 
 ## See if we are finished
-if [[ "$followUpVisit" == "YES" ]] && [[ ! -z $(log show --process "SoftwareUpdateNotificationManager" --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "$downloadCompleteSearch") ]] && [[ "$(/usr/bin/grep -A 1 ">Build<" "/System/Library/AssetsV2/com_apple_MobileAsset_MacSoftwareUpdate/com_apple_MobileAsset_MacSoftwareUpdate.xml" | /usr/bin/head -n 1 | /usr/bin/xargs)" == "$buildNumber" ]]
+if [[ "$followUpVisit" == "YES" ]] && [[ ! -z $(/usr/bin/log show --process "SoftwareUpdateNotificationManager" --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "$downloadCompleteSearch") ]] && [[ "$(/usr/bin/grep -A 1 ">Build<" "/System/Library/AssetsV2/com_apple_MobileAsset_MacSoftwareUpdate/com_apple_MobileAsset_MacSoftwareUpdate.xml" | /usr/bin/head -n 1 | /usr/bin/xargs)" == "$buildNumber" ]]
 then
 	needsPassowrd="True"
 	if [[ "$needsPassowrd" == "True" ]]
@@ -162,7 +159,7 @@ then
 		downloadUpdateReturn=$(/usr/sbin/softwareupdate --download "$updateLabel" --stdinpass "$passwordProvided" | /usr/bin/grep "Downloaded: $updateLabelNoBuild")
 	fi
 
-	if [[ -z "$downloadUpdateReturn" ]]
+	if [[ -z "$downloadUpdateReturn" ]] || [[ -z $(/usr/bin/log show --predicate 'eventMessage contains "BOOT_TIME"' --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "=== system boot:") ]]
 	then
 		echo "Download did not finish. Try again."
 		/usr/bin/defaults write "/usr/local/SUManage.plist" StatusValue -string "RESTARTED"
