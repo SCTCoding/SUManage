@@ -10,6 +10,9 @@
 #############################################################
 
 
+## Copyright Simon April 23, 2022
+## All rights reserved.
+
 loggedInUser=$(/usr/bin/stat -f%Su /dev/console)
 loggedInUID=$(/usr/bin/id -u "$loggedInUser")
 
