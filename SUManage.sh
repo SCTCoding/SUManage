@@ -9,6 +9,7 @@
 #                                             /____/        #  
 #############################################################
 
+## Copyright April 26, 2022 Simon
 
 loggedInUser=$(/usr/bin/stat -f%Su /dev/console)
 loggedInUID=$(/usr/bin/id -u "$loggedInUser")
@@ -172,6 +173,7 @@ then
 	else
 		echo "Update ${updateLabel} successfully downloaded"
 		/usr/bin/defaults write "/usr/local/SUManage.plist" StatusValue -string "COMPLETE"
+		/usr/bin/notifyutil -p "updateDownloaded"
 	fi
 
 fi
