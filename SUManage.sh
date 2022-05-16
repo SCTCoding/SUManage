@@ -36,7 +36,19 @@ updateLabelSearch="$4"
 updateLabel=$(/usr/sbin/softwareupdate --list | /usr/bin/grep -m 1 "$updateLabelSearch" | /usr/bin/awk -F 'Label: ' '{print $2}' | /usr/bin/xargs)
 updateLabelNoBuild=$(echo -n "$updateLabel" | /usr/bin/cut -d '-' -f1 | /usr/bin/xargs)
 buildNumber=$(echo -n "$updateLabel" | /usr/bin/cut -d '-' -f2 | /usr/bin/xargs)
+## Desired version number
 versionNumber="$5"
+storagePath="$6"
+
+if [[ -z "$storagePath" ]]
+then
+	storagePath="/usr/local"
+else
+	if [[ ! -z $(echo -n "$storagePath" | /usr/bin/grep -E '/$') ]]
+	then
+		storagePath=$(echo -n "$storagePath" | /usr/bin/sed -e 's/\/$//g')
+	fi
+fi
 
 msuSearchTerm=$(echo -n "MSU_UPDATE_${buildNumber}_patch_${versionNumber}")
 followUpVisit="NO"
@@ -46,6 +58,14 @@ if [[ "$(/usr/bin/sw_vers -productVersion | /usr/bin/xargs)" == "$versionNumber"
 then
 	echo "No need to update."
 	exit 0
+fi
+
+if [[ ! -e "${storagePath}/SUmanage.log" ]] || [[ $(/usr/bin/du -k -d 0 "${storagePath}/SUmanage.log" | /usr/bin/awk '{print $1}') -gt 10240 ]]
+then
+	echo "$(date '+%F %T') LOG STARTED" > "${storagePath}/SUmanage.log"
+	echo "$(date '+%F %T') PROCESS STARTED for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
+else
+	echo "$(date '+%F %T') PROCESS STARTED for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 fi
 
 function obtainPasswordFromUser {
@@ -63,6 +83,7 @@ EOD
 		if [[ $passwordToCheckReturn -gt 0 ]]
 		then
 			echo "ERROR: User cancelled."
+			echo "$(date '+%F %T') USER FAILED ON PASSWORD for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 			exit 0
 		fi
 
@@ -89,31 +110,32 @@ then
 fi
 
 ## Make sure the plist exists
-if [[ ! -e "/usr/local/SUManage.plist" ]]
+if [[ ! -e "${storagePath}/SUManage.plist" ]]
 then
-	touch "/usr/local/SUManage.plist"
-	/usr/bin/chflags hidden "/usr/local/SUManage.plist"
+	touch "${storagePath}/SUManage.plist"
+	/usr/bin/chflags hidden "${storagePath}/SUManage.plist"
 fi
 
 ## Make sure process is not complete
-if [[ $(/usr/bin/defaults read "/usr/local/SUManage.plist" StatusValue) == "COMPLETE" ]]
+if [[ $(/usr/bin/defaults read "${storagePath}/SUManage.plist" StatusValue) == "COMPLETE" ]]
 then
 	echo "${updateLabel} already completed"
 	exit 0
-elif [[ $(/usr/bin/defaults read "/usr/local/SUManage.plist" StatusValue) == "STARTED" ]]
+elif [[ $(/usr/bin/defaults read "${storagePath}/SUManage.plist" StatusValue) == "STARTED" ]]
 then
 	followUpVisit="YES"
-elif [[ $(/usr/bin/defaults read "/usr/local/SUManage.plist" StatusValue) == "RESTARTED" ]] 
+elif [[ $(/usr/bin/defaults read "${storagePath}/SUManage.plist" StatusValue) == "RESTARTED" ]] 
 then
 	echo "Trying this again. ${updateLabel}"
 fi
 
 ## Check and fix plist
-if [[ "$(/usr/bin/defaults read "/usr/local/SUManage.plist" UpdateNameReference | /usr/bin/xargs)" != "$updateLabel" ]]
+if [[ "$(/usr/bin/defaults read "${storagePath}/SUManage.plist" UpdateNameReference | /usr/bin/xargs)" != "$updateLabel" ]]
 then
-	/usr/bin/defaults write "/usr/local/SUManage.plist" UpdateNameReference -string "$updateLabel"
-	/usr/bin/defaults write "/usr/local/SUManage.plist" DateProcessStarted -string "$(date '+%s')"
-	/usr/bin/defaults write "/usr/local/SUManage.plist" MSU_UPDATE -string "$msuSearchTerm"
+	/usr/bin/defaults write "${storagePath}/SUManage.plist" UpdateNameReference -string "$updateLabel"
+	/usr/bin/defaults write "${storagePath}/SUManage.plist" DateProcessStarted -string "$(date '+%s')"
+	/usr/bin/defaults write "${storagePath}/SUManage.plist" MSU_UPDATE -string "$msuSearchTerm"
+	echo "$(date '+%F %T') START DATE: $(/usr/bin/defaults read "${storagePath}/SUManage.plist" DateProcessStarted) for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 fi
 
 ## Trigger update
@@ -140,29 +162,33 @@ then
 		fi
 
 		nohup /usr/sbin/softwareupdate --download "$updateLabel" --stdinpass "$passwordProvided" &
+		echo "$(date '+%F %T') UPDATE DOWNLOAD STARTED for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 	fi
 	
 	echo "Download has started for ${updateLabel} in the background"
-	/usr/bin/defaults write "/usr/local/SUManage.plist" UpdateDownloadStart -string "$(date '+%Y-%m-%d %H:%M:%S')"
-	/usr/bin/defaults write "/usr/local/SUManage.plist" StatusValue -string "STARTED"
+	/usr/bin/defaults write "${storagePath}/SUManage.plist" UpdateDownloadStart -string "$(date '+%Y-%m-%d %H:%M:%S')"
+	/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "STARTED"
+	echo "$(date '+%F %T') DOWNLOAD STARTED for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 
 	## Grab the log
-	if [[ -z $(/usr/bin/defaults read "/usr/local/SUManage.plist" StartingLogLine | /usr/bin/base64 -D | /usr/bin/grep "$msuSearchTerm") ]]
+	if [[ -z $(/usr/bin/defaults read "${storagePath}/SUManage.plist" StartingLogLine | /usr/bin/base64 -D | /usr/bin/grep "$msuSearchTerm") ]]
 	then
 		initialObtainedLog=$(/usr/bin/log show --process "SoftwareUpdateNotificationManager") 
 		encodeForPlistLogLine=$(echo "$initialObtainedLog" | /usr/bin/grep "$msuSearchTerm" | /usr/bin/head -n 1 | /usr/bin/base64)
 
-		/usr/bin/defaults write "/usr/local/SUManage.plist" StartingLogLine -string "$encodeForPlistLogLine"	
+		/usr/bin/defaults write "${storagePath}/SUManage.plist" StartingLogLine -string "$encodeForPlistLogLine"	
 
 	fi
 else
-	dateStartTimeLog=$(/usr/bin/defaults read "/usr/local/SUManage.plist" StartingLogLine | /usr/bin/base64 -D | /usr/bin/awk -F ' ' '{print $1 $2}' | /usr/bin/cut -d '.' -f1)
+	dateStartTimeLog=$(/usr/bin/defaults read "${storagePath}/SUManage.plist" StartingLogLine | /usr/bin/base64 -D | /usr/bin/awk -F ' ' '{print $1 $2}' | /usr/bin/cut -d '.' -f1)
 fi
 
 
 ## See if we are finished
 if [[ "$followUpVisit" == "YES" ]] && [[ ! -z $(/usr/bin/log show --process "SoftwareUpdateNotificationManager" --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "$downloadCompleteSearch") ]] && [[ "$(/usr/bin/grep -A 1 ">Build<" "/System/Library/AssetsV2/com_apple_MobileAsset_MacSoftwareUpdate/com_apple_MobileAsset_MacSoftwareUpdate.xml" | /usr/bin/head -n 1 | /usr/bin/xargs)" == "$buildNumber" ]]
 then
+	echo "$(date '+%F %T') FOLLOWING UP for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
+
 	needsPassowrd="True"
 	if [[ "$needsPassowrd" == "True" ]]
 	then
@@ -185,11 +211,13 @@ then
 	if [[ -z "$downloadUpdateReturn" ]] || [[ -z $(/usr/bin/log show --predicate 'eventMessage contains "BOOT_TIME"' --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "=== system boot:") ]]
 	then
 		echo "Download did not finish. Try again."
-		/usr/bin/defaults write "/usr/local/SUManage.plist" StatusValue -string "RESTARTED"
+		/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "RESTARTED"
+		echo "$(date '+%F %T') RESTARTING PROCESSS for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 	else
 		echo "Update ${updateLabel} successfully downloaded"
-		/usr/bin/defaults write "/usr/local/SUManage.plist" StatusValue -string "COMPLETE"
+		/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "COMPLETE"
 		/usr/bin/notifyutil -p "updateDownloaded"
+		echo "$(date '+%F %T') DOWNLOAD COMPLETE for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 	fi
 
 fi
