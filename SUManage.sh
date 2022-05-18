@@ -47,6 +47,10 @@ else
 	if [[ ! -z $(echo -n "$storagePath" | /usr/bin/grep -E '/$') ]]
 	then
 		storagePath=$(echo -n "$storagePath" | /usr/bin/sed -e 's/\/$//g')
+		if [[ ! -e "$storagePath" ]]
+		then
+			mkdir -p "$storagePath"
+		fi
 	fi
 fi
 
