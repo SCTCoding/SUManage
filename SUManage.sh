@@ -34,6 +34,13 @@ loggedInUID=$(/usr/bin/id -u "$loggedInUser")
 updateLabelSearch="$4"
 ## Obtain actual label
 updateLabel=$(/usr/sbin/softwareupdate --list | /usr/bin/grep -m 1 "$updateLabelSearch" | /usr/bin/awk -F 'Label: ' '{print $2}' | /usr/bin/xargs)
+
+if [[ -z "$updateLabel" ]]
+then
+	echo "Update was not available. Please check the name."
+	exit 1
+fi
+
 updateLabelNoBuild=$(echo -n "$updateLabel" | /usr/bin/cut -d '-' -f1 | /usr/bin/xargs)
 buildNumber=$(echo -n "$updateLabel" | /usr/bin/cut -d '-' -f2 | /usr/bin/xargs)
 ## Desired version number
