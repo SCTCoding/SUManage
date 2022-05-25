@@ -79,38 +79,6 @@ else
 	echo "$(date '+%F %T') PROCESS STARTED for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 fi
 
-function obtainPasswordFromUser {
-	counter=0
-	passwordCheck=1
-
-	until [[ $passwordCheck -eq 0 ]] || [[ $counter -ge 4 ]]
-	do
-		local passwordToCheck=$(/bin/launchctl asuser "$loggedInUID" sudo -iu "$loggedInUser" /usr/bin/osascript << EOD
-set userpw to the text returned of (display dialog "Please enter the password for '$loggedInUser'." default answer "" buttons {"Cancel", "Continue"} default button "Continue" with hidden answer)
-EOD
-)
-		passwordToCheckReturn=$?
-
-		if [[ $passwordToCheckReturn -gt 0 ]]
-		then
-			echo "ERROR: User cancelled."
-			echo "$(date '+%F %T') USER FAILED ON PASSWORD for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
-			exit 0
-		fi
-
-		passwordCheck=$(dscl /Local/Default -authonly "$loggedInUser" "$passwordToCheck"; echo $?)
-
-		if [[ $passwordCheck -eq 0 ]]
-		then
-			echo "$passwordToCheck"
-			break
-		else
-			sleep $(( ( RANDOM % 3 )  + 1 ))
-		fi
-
-		counter=$(( $counter + 1 ))
-	done
-}
 
 if [[ $(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F '.' '{print $1}' | /usr/bin/xargs) -eq 12 ]]
 then
@@ -155,26 +123,9 @@ then
 	echo "Beginning the update download for ${updateLabel}"
 	#nowTime=$(date '+%Y-%m-%d %H:%M:%S')
 
-	if [[ "$(/usr/sbin/sysctl "machdep.cpu.brand_string" | /usr/bin/awk -F ' ' '{print $2}')" == "Intel(R)" ]]
-	then
-		nohup /usr/sbin/softwareupdate --download "$updateLabel" &
-	elif [[ "$(/usr/sbin/sysctl "machdep.cpu.brand_string" | /usr/bin/awk -F ' ' '{print $2}')" == "Apple" ]]
-	then
-		needsPassowrd="True"
-		if [[ "$needsPassowrd" == "True" ]]
-		then
-			passwordProvided=$(obtainPasswordFromUser)
+	nohup /usr/sbin/softwareupdate --download "$updateLabel" &
 
-			if [[ -z "$passwordProvided" ]]
-			then
-				echo "ERROR: Incorrect password provided. Failing."
-				exit 1
-			fi
-		fi
-
-		nohup /usr/sbin/softwareupdate --download "$updateLabel" --stdinpass "$passwordProvided" &
-		echo "$(date '+%F %T') UPDATE DOWNLOAD STARTED for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
-	fi
+	echo "$(date '+%F %T') UPDATE DOWNLOAD STARTED for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 	
 	echo "Download has started for ${updateLabel} in the background"
 	/usr/bin/defaults write "${storagePath}/SUManage.plist" UpdateDownloadStart -string "$(date '+%Y-%m-%d %H:%M:%S')"
@@ -195,29 +146,12 @@ else
 fi
 
 ## macOS 11+
-if [[ $(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F '.' '{print $1}') -eq 11 ]] && [[ "$(/usr/bin/grep -A 1 ">Build<" "/System/Library/AssetsV2/com_apple_MobileAsset_MacSoftwareUpdate/com_apple_MobileAsset_MacSoftwareUpdate.xml" | /usr/bin/head -n 2 | /usr/bin/tail -n 1 | /usr/bin/awk -F '>|<' '{print $3}' | /usr/bin/xargs)" == "$buildNumber" ]]
+if [[ $(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F '.' '{print $1}') -eq 11 ]]
 then
 	
 	echo "$(date '+%F %T') FOLLOWING UP for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 
-	needsPassowrd="True"
-	if [[ "$needsPassowrd" == "True" ]]
-	then
-		passwordProvided=$(obtainPasswordFromUser)
-		if [[ -z "$passwordProvided" ]]
-		then
-			echo "ERROR: Incorrect password provided. Failing."
-			exit 1
-		fi
-	fi
-
-	if [[ "$(/usr/sbin/sysctl "machdep.cpu.brand_string" | /usr/bin/awk -F ' ' '{print $2}')" == "Intel(R)" ]]
-	then
-		downloadUpdateReturn=$(/usr/sbin/softwareupdate --download "$updateLabel" | /usr/bin/grep "Downloaded: $updateLabelNoBuild")
-	elif [[ "$(/usr/sbin/sysctl "machdep.cpu.brand_string" | /usr/bin/awk -F ' ' '{print $2}')" == "Apple" ]]
-	then
-		downloadUpdateReturn=$(/usr/sbin/softwareupdate --download "$updateLabel" --stdinpass "$passwordProvided" | /usr/bin/grep "Downloaded: $updateLabelNoBuild")
-	fi
+	downloadUpdateReturn=$(/usr/sbin/softwareupdate --download "$updateLabel" | /usr/bin/grep "Downloaded: $updateLabelNoBuild")
 
 	if [[ -z "$downloadUpdateReturn" ]] || [[ -z $(/usr/bin/log show --predicate 'eventMessage contains "BOOT_TIME"' --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "=== system boot:") ]]
 	then
@@ -236,29 +170,12 @@ fi
 
 
 ## See if we are finished macOS 12+
-if [[ "$followUpVisit" == "YES" ]] && [[ ! -z $(/usr/bin/log show --process "SoftwareUpdateNotificationManager" --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "$downloadCompleteSearch") ]] && [[ "$(/usr/bin/grep -A 1 ">Build<" "/System/Library/AssetsV2/com_apple_MobileAsset_MacSoftwareUpdate/com_apple_MobileAsset_MacSoftwareUpdate.xml" | /usr/bin/head -n 2 | /usr/bin/tail -n 1 | /usr/bin/awk -F '>|<' '{print $3}' | /usr/bin/xargs)" == "$buildNumber" ]]
+if [[ "$followUpVisit" == "YES" ]] && [[ ! -z $(/usr/bin/log show --process "SoftwareUpdateNotificationManager" --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "$downloadCompleteSearch") ]]
 then
 	
 	echo "$(date '+%F %T') FOLLOWING UP for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 
-	needsPassowrd="True"
-	if [[ "$needsPassowrd" == "True" ]]
-	then
-		passwordProvided=$(obtainPasswordFromUser)
-		if [[ -z "$passwordProvided" ]]
-		then
-			echo "ERROR: Incorrect password provided. Failing."
-			exit 1
-		fi
-	fi
-
-	if [[ "$(/usr/sbin/sysctl "machdep.cpu.brand_string" | /usr/bin/awk -F ' ' '{print $2}')" == "Intel(R)" ]]
-	then
-		downloadUpdateReturn=$(/usr/sbin/softwareupdate --download "$updateLabel" | /usr/bin/grep "Downloaded: $updateLabelNoBuild")
-	elif [[ "$(/usr/sbin/sysctl "machdep.cpu.brand_string" | /usr/bin/awk -F ' ' '{print $2}')" == "Apple" ]]
-	then
-		downloadUpdateReturn=$(/usr/sbin/softwareupdate --download "$updateLabel" --stdinpass "$passwordProvided" | /usr/bin/grep "Downloaded: $updateLabelNoBuild")
-	fi
+	downloadUpdateReturn=$(/usr/sbin/softwareupdate --download "$updateLabel" | /usr/bin/grep "Downloaded: $updateLabelNoBuild")
 
 	if [[ -z "$downloadUpdateReturn" ]] || [[ -z $(/usr/bin/log show --predicate 'eventMessage contains "BOOT_TIME"' --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "=== system boot:") ]]
 	then
