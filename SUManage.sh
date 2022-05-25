@@ -142,7 +142,7 @@ then
 
 	fi
 else
-	dateStartTimeLog=$(/usr/bin/defaults read "${storagePath}/SUManage.plist" StartingLogLine | /usr/bin/base64 -D | /usr/bin/awk -F ' ' '{print $1 $2}' | /usr/bin/cut -d '.' -f1)
+	dateStartTimeLog=$(/usr/bin/defaults read "${storagePath}/SUManage.plist" StartingLogLine | /usr/bin/base64 -D | /usr/bin/awk -F ' ' '{print $1, $2}' | /usr/bin/cut -d '.' -f1)
 fi
 
 ## macOS 11+
