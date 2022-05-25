@@ -194,10 +194,51 @@ else
 	dateStartTimeLog=$(/usr/bin/defaults read "${storagePath}/SUManage.plist" StartingLogLine | /usr/bin/base64 -D | /usr/bin/awk -F ' ' '{print $1 $2}' | /usr/bin/cut -d '.' -f1)
 fi
 
+## macOS 11+
+if [[ $(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F '.' '{print $1') -eq 11 ]] && [[ "$(/usr/bin/grep -A 1 ">Build<" "/System/Library/AssetsV2/com_apple_MobileAsset_MacSoftwareUpdate/com_apple_MobileAsset_MacSoftwareUpdate.xml" | /usr/bin/head -n 1 | /usr/bin/xargs)" == "$buildNumber" ]]
+then
+	
+	echo "$(date '+%F %T') FOLLOWING UP for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 
-## See if we are finished
+	needsPassowrd="True"
+	if [[ "$needsPassowrd" == "True" ]]
+	then
+		passwordProvided=$(obtainPasswordFromUser)
+		if [[ -z "$passwordProvided" ]]
+		then
+			echo "ERROR: Incorrect password provided. Failing."
+			exit 1
+		fi
+	fi
+
+	if [[ "$(/usr/sbin/sysctl "machdep.cpu.brand_string" | /usr/bin/awk -F ' ' '{print $2}')" == "Intel(R)" ]]
+	then
+		downloadUpdateReturn=$(/usr/sbin/softwareupdate --download "$updateLabel" | /usr/bin/grep "Downloaded: $updateLabelNoBuild")
+	elif [[ "$(/usr/sbin/sysctl "machdep.cpu.brand_string" | /usr/bin/awk -F ' ' '{print $2}')" == "Apple" ]]
+	then
+		downloadUpdateReturn=$(/usr/sbin/softwareupdate --download "$updateLabel" --stdinpass "$passwordProvided" | /usr/bin/grep "Downloaded: $updateLabelNoBuild")
+	fi
+
+	if [[ -z "$downloadUpdateReturn" ]] || [[ -z $(/usr/bin/log show --predicate 'eventMessage contains "BOOT_TIME"' --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "=== system boot:") ]]
+	then
+		echo "Download did not finish. Try again."
+		/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "RESTARTED"
+		echo "$(date '+%F %T') RESTARTING PROCESSS for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
+	else
+		echo "Update ${updateLabel} successfully downloaded"
+		/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "COMPLETE"
+		/usr/bin/notifyutil -p "updateDownloaded"
+		echo "$(date '+%F %T') DOWNLOAD COMPLETE for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
+	fi
+
+	exit 0
+fi
+
+
+## See if we are finished macOS 12+
 if [[ "$followUpVisit" == "YES" ]] && [[ ! -z $(/usr/bin/log show --process "SoftwareUpdateNotificationManager" --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "$downloadCompleteSearch") ]] && [[ "$(/usr/bin/grep -A 1 ">Build<" "/System/Library/AssetsV2/com_apple_MobileAsset_MacSoftwareUpdate/com_apple_MobileAsset_MacSoftwareUpdate.xml" | /usr/bin/head -n 1 | /usr/bin/xargs)" == "$buildNumber" ]]
 then
+	
 	echo "$(date '+%F %T') FOLLOWING UP for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 
 	needsPassowrd="True"
