@@ -33,7 +33,8 @@ loggedInUID=$(/usr/bin/id -u "$loggedInUser")
 ## Lable without build
 updateLabelSearch="$4"
 ## Obtain actual label
-updateLabel=$(/usr/sbin/softwareupdate --list | /usr/bin/grep -m 1 "$updateLabelSearch" | /usr/bin/awk -F 'Label: ' '{print $2}' | /usr/bin/xargs)
+softwareUpdateListDump=$(/usr/sbin/softwareupdate --list)
+updateLabel=$(echo "$softwareUpdateListDump" | /usr/bin/grep -m 1 "$updateLabelSearch" | /usr/bin/awk -F 'Label: ' '{print $2}' | /usr/bin/xargs)
 
 if [[ -z "$updateLabel" ]]
 then
@@ -70,6 +71,15 @@ then
 	echo "No need to update."
 	exit 0
 fi
+
+if [[ ! -z $(echo "$softwareUpdateListDump" | /usr/bin/grep "Downloaded: $updateLabelNoBuild") ]]
+then
+	echo "Update has already been downloaded."
+	/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "COMPLETE"
+	/usr/bin/notifyutil -p "updateDownloaded"
+fi
+
+
 
 if [[ ! -e "${storagePath}/SUmanage.log" ]] || [[ $(/usr/bin/du -k -d 0 "${storagePath}/SUmanage.log" | /usr/bin/awk '{print $1}') -gt 10240 ]]
 then
