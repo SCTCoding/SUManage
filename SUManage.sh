@@ -75,6 +75,7 @@ fi
 if [[ ! -z $(echo "$softwareUpdateListDump" | /usr/bin/grep "Downloaded: $updateLabelNoBuild") ]]
 then
 	echo "Update has already been downloaded."
+	/usr/bin/defaults write "${storagePath}/SUManage.plist" UpdateNameReference -string "$updateLabel"
 	/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "COMPLETE"
 	/usr/bin/notifyutil -p "updateDownloaded"
 fi
