@@ -22,6 +22,9 @@ SUManage and SUInstall should work with macOS 11.0 through the current release o
 5. Use the log date provided to search for the completion string
 6. Verify with another attempt to download the update
 7. Mark complete, or retry depending on the results
+8. Once complete SUInstall checks to make sure everything is ready
+9. If all is good, then a message prompts the user to click ready to install when ready
+10. The install happens automatically for the specific item you specified to download
 
 ## Envision Use Case
 In theory this could be run with something like Jamf. For the Jamf case (this just happens to be what I have to deal with):
