@@ -4,6 +4,9 @@ Since Big Sur came out there is a problem when trying to manage updates in more 
 ## SUManage
 The idea is that SUManage lets you specify a particualar label to download and it will check and tell you when that is finished. You can use this with tools like Jamf to have a more sane user experience. Simply connect your notifications to the current plist output. 
 
+## SUInstall
+SUInstall follows SUManage and takes whatever you downloaded–installs it and reboots the computer. SUInstall gives the user a warning ahead of time to save and prepare, and then once the "Ready" button is pressed the install should happen almost immediately.
+
 ## OS Compatability
 This should work on any version of MacOS Monterey, but it will have issues with Big Sur. I am building a fix for that right now. I just have not added the changes. I am still doing some analysis of Big Sur.
 
