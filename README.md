@@ -7,6 +7,9 @@ The idea is that SUManage lets you specify a particualar label to download and i
 ## OS Compatability
 This should work on any version of MacOS Monterey, but it will have issues with Big Sur. I am building a fix for that right now. I just have not added the changes. I am still doing some analysis of Big Sur.
 
+## Obtain Current Version
+[Latest Release](https://github.com/SCTCoding/SUManage/releases/tag/0.2.1)
+
 ## How It Works
 1. Build the plist
 2. Start the download of the given software update
