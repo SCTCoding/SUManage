@@ -28,6 +28,7 @@
 #############################################################
 
 
+## The policy that runs this if separate from SUManage then the policy needs to scope based on a complete download attribute.
 if [[ -e "/usr/local/Avalara/SUManage.plist" ]]
 then
     statusValue=$(/usr/bin/defaults read "/usr/local/Avalara/SUManage.plist" StatusValue | /usr/bin/xargs)
@@ -37,10 +38,11 @@ else
     exit 1
 fi
 
+## If not complete stop.
 if [[ "$statusValue" != "COMPLETE" ]]
 then
     echo "Update has not downloaded."
-    exit 1
+    exit 0
 fi
 
 readyState="NOT READY"
@@ -59,7 +61,7 @@ then
 
     until [[ $dialogReturn -eq 0 ]]
     do
-        /Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType hud -heading "Update Ready To Install" -description "Please save what you are doing and when you are ready click the \"Ready\" button to continue with the installation of ${updateValue}. It may take a few minutes, before your computer is ready to restart, but when ready your computer will restart and install the update." -button1 "Ready" -lockHUD -icon "/System/Library/PreferencePanes/SoftwareUpdate.prefPane/Contents/Resources/SoftwareUpdate.icns"
+        /Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType hud -heading "Update Ready To Install" -description "Please save what you are doing and when you are ready click the \"Ready\" button to continue with the installation of ${updateValue}. It may take a few minutes, before your computer is ready to restart, but when ready your computer will restart and install the update." -button1 "Ready" -lockHUD -icon "/System/Library/PreferencePanes/SoftwareUpdate.prefPane/Contents/Resources/SoftwareUpdate.icns" -iconSize 128
         dialogReturn=$?
     done
 fi
