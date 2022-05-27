@@ -72,6 +72,7 @@ then
 	exit 0
 fi
 
+## See if the update is already downloaded. If so we don't need to do it again.
 if [[ ! -z $(echo "$softwareUpdateListDump" | /usr/bin/grep "Downloaded: $updateLabelNoBuild") ]]
 then
 	echo "Update has already been downloaded."
@@ -132,7 +133,6 @@ fi
 if [[ "$followUpVisit" == "NO" ]]
 then
 	echo "Beginning the update download for ${updateLabel}"
-	#nowTime=$(date '+%Y-%m-%d %H:%M:%S')
 
 	nohup /usr/sbin/softwareupdate --download "$updateLabel" &
 
@@ -181,12 +181,15 @@ then
 	exit 0
 fi
 
+## Will restart the download process for softwareupdate
 downloadUpdateReturn=$(/usr/sbin/softwareupdate --download "$updateLabel" | /usr/bin/grep "Downloaded: $updateLabelNoBuild")
 
 
 ## macOS 11+
-if [[ $(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F '.' '{print $1}') -eq 11 ]]
+if [[ $(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F '.' '{print $1}') -eq 11 ]] && [[ "$followUpVisit" == "YES" ]]
 then
+
+	echo "$(date '+%F %T') FOLLOWING UP for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 
 	if [[ -z "$downloadUpdateReturn" ]] || [[ ! -z $(/usr/bin/log show --predicate 'eventMessage contains "BOOT_TIME"' --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "=== system boot:") ]]
 	then
