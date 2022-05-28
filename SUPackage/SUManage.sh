@@ -72,19 +72,6 @@ then
 	exit 0
 fi
 
-## See if the update is already downloaded. If so we don't need to do it again.
-
-nohup /usr/sbin/softwareupdate --download "$updateLabel" >> /tmp/currentDumpLog &
-
-if [[ ! -z $(cat "/tmp/currentDumpLog" | /usr/bin/grep "Downloaded: $updateLabelNoBuild") ]]
-then
-	echo "Update has already been downloaded."
-	/usr/bin/defaults write "${storagePath}/SUManage.plist" UpdateNameReference -string "$updateLabel"
-	/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "COMPLETE"
-	/usr/bin/notifyutil -p "updateDownloaded"
-	rm "/tmp/currentDumpLog"
-fi
-
 ## Check if storage content exists and if not start making the log. We also make sure the SUManage log isn't too big.
 if [[ ! -e "${storagePath}/SUmanage.log" ]] || [[ $(/usr/bin/du -k -d 0 "${storagePath}/SUmanage.log" | /usr/bin/awk '{print $1}') -gt 10240 ]]
 then
@@ -160,23 +147,6 @@ else
 fi
 
 echo "$(date '+%F %T') FOLLOWING UP for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
-
-## Make sure SoftwareUpdate is not too busy
-## Setting checkValue to something other than blank
-checkValue="NOT BLANK"
-counter=0
-until [[ -z "$checkValue" ]] || [[ $counter -eq 5 ]]
-do
-	sleep 20
-
-	checkValue=$(/usr/sbin/softwareupdate --download "$updateLabel" | /usr/bin/grep "No such update")
-
-	if [[ -z "$checkValue" ]]
-	then
-		sleep 20
-		break
-	fi
-done
 
 if [[ $counter -ge 5 ]] && [[ ! -z "$checkValue" ]]
 then
