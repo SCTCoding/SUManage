@@ -9,7 +9,8 @@ SUInstall follows SUManage and takes whatever you downloaded–installs it and r
 
 ## OS Compatability
 ~~This should work on any version of MacOS Monterey, but it will have issues with Big Sur. I am building a fix for that right now. I just have not added the changes. I am still doing some analysis of Big Sur.~~
-SUManage and SUInstall should work with macOS 11.0 through the current release of Monterey. Some of the most recent refactorings of the code have been to add compatibility and to improve the handling of corner cases with Big Sur vs Monterey.
+~~SUManage and SUInstall should work with macOS 11.0 through the current release of Monterey. Some of the most recent refactorings of the code have been to add compatibility and to improve the handling of corner cases with Big Sur vs Monterey.~~
+SUManage is only stable with Monterey for the moment. Big Sur causes problems. SUInstall could technically be OS agnostic, but to work as intended it should work best with Monterey.
 
 ## Obtain Current Version
 [Latest Release](https://github.com/SCTCoding/SUManage/releases/tag/0.2.1)
