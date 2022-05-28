@@ -66,7 +66,7 @@ msuSearchTerm=$(echo -n "MSU_UPDATE_${buildNumber}_patch_${versionNumber}")
 followUpVisit="NO"
 
 ## Obtain OS version number and compare to target version number
-if [[ "$(/usr/bin/sw_vers -productVersion | /usr/bin/xargs)" == "$versionNumber" ]]
+if [[ "$(/usr/bin/sw_vers -productVersion | /usr/bin/xargs)" == "$versionNumber" ]] && [[ $(/usr/bin/sw_vers -buildVersion | /usr/bin/xargs) == "$buildNumber" ]]
 then
 	echo "No need to update."
 	exit 0
@@ -82,13 +82,7 @@ else
 fi
 
 ## Set our search complete strings
-if [[ $(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F '.' '{print $1}' | /usr/bin/xargs) -eq 12 ]]
-then
-	downloadCompleteSearch="Download is complete"
-elif [[ $(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F '.' '{print $1}' | /usr/bin/xargs) -eq 11 ]]
-then
-	downloadCompleteSearch="${msuSearchTerm} (no, not downloaded)"
-fi
+downloadCompleteSearch="Download is complete"
 
 ## Make sure the plist exists
 if [[ ! -e "${storagePath}/SUManage.plist" ]]
@@ -155,9 +149,6 @@ then
 	exit 0
 fi
 
-## Will restart the download process for softwareupdate
-downloadUpdateReturn=$(/usr/sbin/softwareupdate --download "$updateLabel" | /usr/bin/grep "Downloaded: $updateLabelNoBuild")
-
 ## Check for reboot
 if [[ ! -z $(/usr/bin/log show --predicate 'eventMessage contains "BOOT_TIME"' --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "=== system boot:") ]]
 then
@@ -169,32 +160,14 @@ then
 	/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "RESTARTED"
 fi
 
-## macOS 11+
-if [[ $(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F '.' '{print $1}') -eq 11 ]] && [[ "$followUpVisit" == "YES" ]]
-then
-
-	echo "$(date '+%F %T') FOLLOWING UP for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
-
-	if [[ -z "$downloadUpdateReturn" ]]
-	then
-		echo "Download did not finish. Try again."
-	else
-		echo "Update ${updateLabel} successfully downloaded"
-		/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "COMPLETE"
-		/usr/bin/notifyutil -p "updateDownloaded"
-		echo "$(date '+%F %T') DOWNLOAD COMPLETE for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
-		rm "/tmp/currentDumpLog"
-	fi
-
-	exit 0
-fi
-
-
 ## See if we are finished macOS 12+
 if [[ "$followUpVisit" == "YES" ]] && [[ ! -z $(/usr/bin/log show --process "SoftwareUpdateNotificationManager" --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "$downloadCompleteSearch") ]]
 then
 	
 	echo "$(date '+%F %T') FOLLOWING UP for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
+
+	## Will restart the download process for softwareupdate
+	downloadUpdateReturn=$(/usr/sbin/softwareupdate --download "$updateLabel" | /usr/bin/grep "Downloaded: $updateLabelNoBuild")
 
 	if [[ -z "$downloadUpdateReturn" ]]
 	then
