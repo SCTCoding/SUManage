@@ -107,7 +107,7 @@ fi
 finshedCheck=$(/usr/bin/log show --process "SoftwareUpdateNotificationManager" --start $(date '+%Y-%m-%d'))
 findMSUValue=$(echo "$finshedCheck" | /usr/bin/grep "$msuSearchTerm")
 
-if [[ ! -z $(echo "$findMSUValue") | /usr/bin/grep "$downloadCompleteSearch") ]]
+if [[ ! -z $(echo "$findMSUValue" | /usr/bin/grep "$downloadCompleteSearch") ]]
 then
 	echo "Update ${updateLabel} successfully downloaded"
 	/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "COMPLETE"
@@ -160,9 +160,9 @@ fi
 
 
 ## Obtain the finished log message if it exists.
-finshedCheck=$(/usr/bin/log show --process "SoftwareUpdateNotificationManager" --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')"
+finshedCheck=$(/usr/bin/log show --process "SoftwareUpdateNotificationManager" --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')")
 
-if [[ "$followUpVisit" == "YES" ]] && [[ -z $(echo "$finshedCheck") | /usr/bin/grep "$downloadCompleteSearch") ]]
+if [[ "$followUpVisit" == "YES" ]] && [[ -z $(echo "$finshedCheck" | /usr/bin/grep "$downloadCompleteSearch") ]]
 then
 
 	## Check for reboot
@@ -186,7 +186,7 @@ then
 	fi
 
 	exit 0
-elif [[ "$followUpVisit" == "YES" ]] && [[ ! -z $(echo "$finshedCheck") | /usr/bin/grep "$downloadCompleteSearch") ]]
+elif [[ "$followUpVisit" == "YES" ]] && [[ ! -z $(echo "$finshedCheck" | /usr/bin/grep "$downloadCompleteSearch") ]]
 then
 	
 	downloadUpdateReturn=$(/usr/sbin/softwareupdate --download "$updateLabel" | /usr/bin/grep "Downloaded: $updateLabelNoBuild")
