@@ -27,9 +27,6 @@
 ## along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #############################################################
 
-loggedInUser=$(/usr/bin/stat -f%Su /dev/console)
-loggedInUID=$(/usr/bin/id -u "$loggedInUser")
-
 ## Label without build
 updateLabelSearch="$4"
 ## Obtain actual label
@@ -76,12 +73,16 @@ then
 fi
 
 ## See if the update is already downloaded. If so we don't need to do it again.
-if [[ ! -z $(echo "$softwareUpdateListDump" | /usr/bin/grep "Downloaded: $updateLabelNoBuild") ]]
+
+nohup /usr/sbin/softwareupdate --download "$updateLabel" >> /tmp/currentDumpLog &
+
+if [[ ! -z $(cat "/tmp/currentDumpLog" | /usr/bin/grep "Downloaded: $updateLabelNoBuild") ]]
 then
 	echo "Update has already been downloaded."
 	/usr/bin/defaults write "${storagePath}/SUManage.plist" UpdateNameReference -string "$updateLabel"
 	/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "COMPLETE"
 	/usr/bin/notifyutil -p "updateDownloaded"
+	rm "/tmp/currentDumpLog"
 fi
 
 ## Check if storage content exists and if not start making the log. We also make sure the SUManage log isn't too big.
@@ -212,6 +213,7 @@ then
 		/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "COMPLETE"
 		/usr/bin/notifyutil -p "updateDownloaded"
 		echo "$(date '+%F %T') DOWNLOAD COMPLETE for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
+		rm "/tmp/currentDumpLog"
 	fi
 
 	exit 0
@@ -232,6 +234,7 @@ then
 		/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "COMPLETE"
 		/usr/bin/notifyutil -p "updateDownloaded"
 		echo "$(date '+%F %T') DOWNLOAD COMPLETE for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
+		rm "/tmp/currentDumpLog"
 	fi
 
 fi
