@@ -30,7 +30,7 @@
 loggedInUser=$(/usr/bin/stat -f%Su /dev/console)
 loggedInUID=$(/usr/bin/id -u "$loggedInUser")
 
-## Lable without build
+## Label without build
 updateLabelSearch="$4"
 ## Obtain actual label
 softwareUpdateListDump=$(/usr/sbin/softwareupdate --list)
@@ -46,6 +46,7 @@ updateLabelNoBuild=$(echo -n "$updateLabel" | /usr/bin/cut -d '-' -f1 | /usr/bin
 buildNumber=$(echo -n "$updateLabel" | /usr/bin/cut -d '-' -f2 | /usr/bin/xargs)
 ## Desired version number
 versionNumber="$5"
+## SUManage data storage path
 storagePath="$6"
 
 if [[ -z "$storagePath" ]]
@@ -55,6 +56,8 @@ else
 	if [[ ! -z $(echo -n "$storagePath" | /usr/bin/grep -E '/$') ]]
 	then
 		storagePath=$(echo -n "$storagePath" | /usr/bin/sed -e 's/\/$//g')
+
+		## Make sure path exits
 		if [[ ! -e "$storagePath" ]]
 		then
 			mkdir -p "$storagePath"
@@ -64,8 +67,8 @@ fi
 
 msuSearchTerm=$(echo -n "MSU_UPDATE_${buildNumber}_patch_${versionNumber}")
 followUpVisit="NO"
-needsPassowrd="False"
 
+## Obtain OS version number and compare to target version number
 if [[ "$(/usr/bin/sw_vers -productVersion | /usr/bin/xargs)" == "$versionNumber" ]]
 then
 	echo "No need to update."
@@ -81,8 +84,7 @@ then
 	/usr/bin/notifyutil -p "updateDownloaded"
 fi
 
-
-
+## Check if storage content exists and if not start making the log. We also make sure the SUManage log isn't too big.
 if [[ ! -e "${storagePath}/SUmanage.log" ]] || [[ $(/usr/bin/du -k -d 0 "${storagePath}/SUmanage.log" | /usr/bin/awk '{print $1}') -gt 10240 ]]
 then
 	echo "$(date '+%F %T') LOG STARTED" > "${storagePath}/SUmanage.log"
@@ -91,7 +93,7 @@ else
 	echo "$(date '+%F %T') PROCESS STARTED for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 fi
 
-
+## Set our search complete strings
 if [[ $(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F '.' '{print $1}' | /usr/bin/xargs) -eq 12 ]]
 then
 	downloadCompleteSearch="Download is complete"
@@ -159,6 +161,7 @@ fi
 echo "$(date '+%F %T') FOLLOWING UP for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 
 ## Make sure SoftwareUpdate is not too busy
+## Setting checkValue to something other than blank
 checkValue="NOT BLANK"
 counter=0
 until [[ -z "$checkValue" ]] || [[ $counter -eq 5 ]]
@@ -184,6 +187,16 @@ fi
 ## Will restart the download process for softwareupdate
 downloadUpdateReturn=$(/usr/sbin/softwareupdate --download "$updateLabel" | /usr/bin/grep "Downloaded: $updateLabelNoBuild")
 
+## Check for reboot
+if [[ ! -z $(/usr/bin/log show --predicate 'eventMessage contains "BOOT_TIME"' --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "=== system boot:") ]]
+then
+	echo "$(date '+%F %T') RESTARTING PROCESSS for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
+
+	nohup /usr/sbin/softwareupdate --download "$updateLabel" &
+
+	echo "$(date '+%F %T') UPDATE DOWNLOAD RESTARTED for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
+	/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "RESTARTED"
+fi
 
 ## macOS 11+
 if [[ $(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F '.' '{print $1}') -eq 11 ]] && [[ "$followUpVisit" == "YES" ]]
@@ -191,11 +204,9 @@ then
 
 	echo "$(date '+%F %T') FOLLOWING UP for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 
-	if [[ -z "$downloadUpdateReturn" ]] || [[ ! -z $(/usr/bin/log show --predicate 'eventMessage contains "BOOT_TIME"' --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "=== system boot:") ]]
+	if [[ -z "$downloadUpdateReturn" ]]
 	then
 		echo "Download did not finish. Try again."
-		/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "RESTARTED"
-		echo "$(date '+%F %T') RESTARTING PROCESSS for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 	else
 		echo "Update ${updateLabel} successfully downloaded"
 		/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "COMPLETE"
@@ -213,11 +224,9 @@ then
 	
 	echo "$(date '+%F %T') FOLLOWING UP for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 
-	if [[ -z "$downloadUpdateReturn" ]] || [[ ! -z $(/usr/bin/log show --predicate 'eventMessage contains "BOOT_TIME"' --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "=== system boot:") ]]
+	if [[ -z "$downloadUpdateReturn" ]]
 	then
 		echo "Download did not finish. Try again."
-		/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "RESTARTED"
-		echo "$(date '+%F %T') RESTARTING PROCESSS for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 	else
 		echo "Update ${updateLabel} successfully downloaded"
 		/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "COMPLETE"
