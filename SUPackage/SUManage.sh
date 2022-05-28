@@ -91,6 +91,31 @@ then
 	/usr/bin/chflags hidden "${storagePath}/SUManage.plist"
 fi
 
+## Check and fix plist
+if [[ "$(/usr/bin/defaults read "${storagePath}/SUManage.plist" UpdateNameReference | /usr/bin/xargs)" != "$updateLabel" ]]
+then
+	/usr/bin/defaults write "${storagePath}/SUManage.plist" UpdateNameReference -string "$updateLabel"
+	/usr/bin/defaults write "${storagePath}/SUManage.plist" DateProcessStarted -string "$(date '+%s')"
+	/usr/bin/defaults write "${storagePath}/SUManage.plist" MSU_UPDATE -string "$msuSearchTerm"
+	/usr/bin/defaults write "${storagePath}/SUManage.plist" HasRebootedDate -string "NONE"
+	echo "$(date '+%F %T') START DATE: $(/usr/bin/defaults read "${storagePath}/SUManage.plist" DateProcessStarted) for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
+fi
+
+## Pre-check for finished update
+## Obtain the finished log message if it exists.
+
+finshedCheck=$(/usr/bin/log show --process "SoftwareUpdateNotificationManager" --start $(date '+%Y-%m-%d'))
+findMSUValue=$(echo "$finshedCheck" | /usr/bin/grep "$msuSearchTerm")
+
+if [[ ! -z $(echo "$findMSUValue") | /usr/bin/grep "$downloadCompleteSearch") ]]
+then
+	echo "Update ${updateLabel} successfully downloaded"
+	/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "COMPLETE"
+	/usr/bin/defaults write "${storagePath}/SUManage.plist" UpdateNameReference -string "$updateLabel"
+	/usr/bin/notifyutil -p "updateDownloaded"
+	exit 0
+fi
+
 ## Make sure process is not complete
 if [[ $(/usr/bin/defaults read "${storagePath}/SUManage.plist" StatusValue) == "COMPLETE" ]]
 then
@@ -102,15 +127,6 @@ then
 elif [[ $(/usr/bin/defaults read "${storagePath}/SUManage.plist" StatusValue) == "RESTARTED" ]] 
 then
 	echo "Trying this again. ${updateLabel}"
-fi
-
-## Check and fix plist
-if [[ "$(/usr/bin/defaults read "${storagePath}/SUManage.plist" UpdateNameReference | /usr/bin/xargs)" != "$updateLabel" ]]
-then
-	/usr/bin/defaults write "${storagePath}/SUManage.plist" UpdateNameReference -string "$updateLabel"
-	/usr/bin/defaults write "${storagePath}/SUManage.plist" DateProcessStarted -string "$(date '+%s')"
-	/usr/bin/defaults write "${storagePath}/SUManage.plist" MSU_UPDATE -string "$msuSearchTerm"
-	echo "$(date '+%F %T') START DATE: $(/usr/bin/defaults read "${storagePath}/SUManage.plist" DateProcessStarted) for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 fi
 
 ## Trigger update
@@ -137,41 +153,54 @@ then
 
 	fi
 else
+	echo "$(date '+%F %T') FOLLOWING UP for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
+	## For log searches
 	dateStartTimeLog=$(/usr/bin/defaults read "${storagePath}/SUManage.plist" StartingLogLine | /usr/bin/base64 -D | /usr/bin/awk -F ' ' '{print $1, $2}' | /usr/bin/cut -d '.' -f1)
 fi
 
-echo "$(date '+%F %T') FOLLOWING UP for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
 
-if [[ $counter -ge 5 ]] && [[ ! -z "$checkValue" ]]
+## Obtain the finished log message if it exists.
+finshedCheck=$(/usr/bin/log show --process "SoftwareUpdateNotificationManager" --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')"
+
+if [[ "$followUpVisit" == "YES" ]] && [[ -z $(echo "$finshedCheck") | /usr/bin/grep "$downloadCompleteSearch") ]]
 then
-	echo "$(date '+%F %T') SoftwareUpdate BUSY for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
-	echo "SoftwareUpdate busy. Unable to determine status."
+
+	## Check for reboot
+	hasRebootedValue=$(/usr/bin/defaults read "${storagePath}/SUManage.plist" HasRebootedDate)
+	if [[ $(/usr/bin/defaults read "${storagePath}/SUManage.plist" HasRebootedDate) == "NONE" ]]
+	then
+		logDateCheck="$dateStartTimeLog"
+	else
+		logDateCheck="$hasRebootedValue"
+	fi
+
+	if [[ ! -z $(/usr/bin/log show --predicate 'eventMessage contains "system boot:"' --start "$(echo -n "$logDateCheck")" | /usr/bin/grep "=== system boot:") ]]
+	then
+		echo "$(date '+%F %T') RESTARTING PROCESSS for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
+		/usr/bin/defaults write "${storagePath}/SUManage.plist" HasRebootedDate -string "NONE" ## CHANGE ME
+
+		nohup /usr/sbin/softwareupdate --download "$updateLabel" &
+
+		echo "$(date '+%F %T') UPDATE DOWNLOAD RESTARTED for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
+		/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "RESTARTED"
+	fi
+
 	exit 0
-fi
-
-## Check for reboot
-if [[ ! -z $(/usr/bin/log show --predicate 'eventMessage contains "BOOT_TIME"' --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "=== system boot:") ]]
-then
-	echo "$(date '+%F %T') RESTARTING PROCESSS for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
-
-	nohup /usr/sbin/softwareupdate --download "$updateLabel" &
-
-	echo "$(date '+%F %T') UPDATE DOWNLOAD RESTARTED for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
-	/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "RESTARTED"
-fi
-
-## See if we are finished macOS 12+
-if [[ "$followUpVisit" == "YES" ]] && [[ ! -z $(/usr/bin/log show --process "SoftwareUpdateNotificationManager" --start "$(echo -n "$dateStartTimeLog" | /usr/bin/awk -F ' ' '{print $1}')" | /usr/bin/grep "$downloadCompleteSearch") ]]
+elif [[ "$followUpVisit" == "YES" ]] && [[ ! -z $(echo "$finshedCheck") | /usr/bin/grep "$downloadCompleteSearch") ]]
 then
 	
-	echo "$(date '+%F %T') FOLLOWING UP for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
-
-	## Will restart the download process for softwareupdate
 	downloadUpdateReturn=$(/usr/sbin/softwareupdate --download "$updateLabel" | /usr/bin/grep "Downloaded: $updateLabelNoBuild")
 
 	if [[ -z "$downloadUpdateReturn" ]]
 	then
 		echo "Download did not finish. Try again."
+		echo "$(date '+%F %T') RESTARTING PROCESSS for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
+
+		nohup /usr/sbin/softwareupdate --download "$updateLabel" &
+
+		echo "$(date '+%F %T') UPDATE DOWNLOAD RESTARTED for ${updateLabelSearch}" >> "${storagePath}/SUmanage.log"
+		/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "RESTARTED"
+
 	else
 		echo "Update ${updateLabel} successfully downloaded"
 		/usr/bin/defaults write "${storagePath}/SUManage.plist" StatusValue -string "COMPLETE"
